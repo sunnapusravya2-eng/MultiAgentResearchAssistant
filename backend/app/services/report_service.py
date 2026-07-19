@@ -4,6 +4,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+from docx import Document
 from fpdf import FPDF
 
 from app.core.config import DATA_DIR
@@ -32,6 +33,7 @@ class ReportService:
         report_body = self.llm.invoke(prompt).content
 
         pdf_path = self._save_pdf(title=title, content=report_body)
+        docx_path = self._save_docx(title=title, content=report_body)
 
         return {
             "title": title,
@@ -39,6 +41,7 @@ class ReportService:
             "conversation_id": conversation_id,
             "content": report_body,
             "pdf_path": str(pdf_path),
+            "docx_path": str(docx_path),
         }
 
     @staticmethod
@@ -54,6 +57,10 @@ class ReportService:
             f"Context:\n{context}\n\n"
             "Write the full report now."
         )
+
+    @staticmethod
+    def _safe_filename(title: str) -> str:
+        return re.sub(r"[^a-zA-Z0-9_-]+", "_", title.strip()).strip("_") or "report"
 
     def _save_pdf(self, title: str, content: str) -> Path:
         pdf = FPDF()
@@ -102,7 +109,27 @@ class ReportService:
                 self.logger.warning("Skipping unrenderable PDF line: %s", exc)
                 continue
 
-        safe_filename = re.sub(r"[^a-zA-Z0-9_-]+", "_", title.strip()).strip("_") or "report"
-        pdf_path = REPORTS_DIR / f"{safe_filename}.pdf"
+        pdf_path = REPORTS_DIR / f"{self._safe_filename(title)}.pdf"
         pdf.output(str(pdf_path))
         return pdf_path
+
+    def _save_docx(self, title: str, content: str) -> Path:
+        doc = Document()
+        doc.add_heading(title, level=1)
+
+        for raw_line in content.split("\n"):
+            line = raw_line.strip()
+            if not line:
+                doc.add_paragraph("")
+                continue
+            if line.startswith("- ") or line.startswith("* "):
+                doc.add_paragraph(line[2:], style="List Bullet")
+            elif line.startswith("#"):
+                heading_text = line.lstrip("#").strip()
+                doc.add_heading(heading_text, level=2)
+            else:
+                doc.add_paragraph(line)
+
+        docx_path = REPORTS_DIR / f"{self._safe_filename(title)}.docx"
+        doc.save(str(docx_path))
+        return docx_path
