@@ -1,0 +1,26 @@
+# Environment variables
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+*.egg-info/
+
+# Data & runtime files
+data/
+uploads/
+vector_db/
+database.db
+*.db
+
+# Frontend (if applicable)
+node_modules/
+dist/
+build/
+
+# OS/editor junk
+.DS_Store
+.vscode/
+*.log
